@@ -78,7 +78,7 @@ export async function readSheetValues(sheetName: string): Promise<string[][]> {
     return res.data.values || [];
   } catch (err: any) {
     console.error(`Error reading sheet ${sheetName}:`, err?.message || err);
-    return [];
+    throw err;
   }
 }
 
@@ -94,6 +94,11 @@ export async function writeSheetValues(
   }
 
   try {
+    // Clear sheet range first to prevent stale leftover rows when deleting
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+    });
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${sheetName}!A1`,
@@ -132,7 +137,40 @@ export async function appendSheetRow(
   }
 }
 
-export async function ensureSpreadsheetStructure(): Promise<boolean> {
+export async function batchReadSheets(sheetNames: string[]): Promise<Record<string, string[][]>> {
+  const sheets = getGoogleSheetsClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  if (!sheets || !spreadsheetId) {
+    throw new Error('Google Sheets API credentials or GOOGLE_SHEET_ID is missing');
+  }
+
+  try {
+    const res = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId,
+      ranges: sheetNames.map((name) => `${name}!A:Z`),
+    });
+
+    const result: Record<string, string[][]> = {};
+    const valueRanges = res.data.valueRanges || [];
+    sheetNames.forEach((name, idx) => {
+      result[name] = valueRanges[idx]?.values || [];
+    });
+
+    return result;
+  } catch (err: any) {
+    console.error('Error in batchReadSheets:', err?.message || err);
+    throw err;
+  }
+}
+
+let isStructureEnsured = false;
+
+export async function ensureSpreadsheetStructure(force = false): Promise<boolean> {
+  if (isStructureEnsured && !force) {
+    return true;
+  }
+
   const sheets = getGoogleSheetsClient();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -158,14 +196,13 @@ export async function ensureSpreadsheetStructure(): Promise<boolean> {
             ],
           },
         });
-      }
-      // Add default headers if sheet is empty
-      const values = await readSheetValues(name);
-      if (values.length === 0) {
         const headers = SHEET_HEADERS[name];
-        await writeSheetValues(name, [headers]);
+        if (headers) {
+          await writeSheetValues(name, [headers]);
+        }
       }
     }
+    isStructureEnsured = true;
     return true;
   } catch (err) {
     console.error('Failed to ensure spreadsheet structure:', err);

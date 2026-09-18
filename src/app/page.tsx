@@ -8,6 +8,7 @@ import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BudgetProgressWidget } from '@/components/dashboard/BudgetProgressWidget';
 import { GoalsProgressWidget } from '@/components/dashboard/GoalsProgressWidget';
 import { AddTransactionModal } from '@/components/transactions/AddTransactionModal';
+import { GoogleSetupModal } from '@/components/shared/GoogleSetupModal';
 import { getCurrentMonthStr } from '@/lib/utils/formatters';
 import {
   calculateTotalIncome,
@@ -41,6 +42,8 @@ export default function DashboardPage() {
   });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const fetchData = async () => {
     try {
@@ -67,6 +70,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+
+    // Check if Google Sheets setup has been completed in localStorage
+    const setupCompleted = localStorage.getItem('google_sheets_setup_complete');
+    if (!setupCompleted || setupCompleted !== 'true') {
+      setIsSetupModalOpen(true);
+    }
   }, []);
 
   // Filter transactions for selected month
@@ -93,6 +102,16 @@ export default function DashboardPage() {
   );
   const budgetRemaining = monthlyBudget - budgetSpent;
 
+  const handleOpenAdd = () => {
+    setEditingTransaction(null);
+    setIsAddModalOpen(true);
+  };
+
+  const handleSelectTransaction = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsAddModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-24">
       <Header
@@ -101,6 +120,7 @@ export default function DashboardPage() {
         lastSyncedAt={lastSyncedAt}
         isMock={isMock}
         onSyncComplete={fetchData}
+        onOpenSetupModal={() => setIsSetupModalOpen(true)}
       />
 
       <main className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4 space-y-4">
@@ -126,7 +146,10 @@ export default function DashboardPage() {
             />
 
             {/* Recent Transactions */}
-            <RecentTransactions transactions={transactions} />
+            <RecentTransactions
+              transactions={transactions}
+              onSelectTransaction={handleSelectTransaction}
+            />
 
             {/* Budget Progress */}
             <BudgetProgressWidget
@@ -141,16 +164,27 @@ export default function DashboardPage() {
         )}
       </main>
 
-      <BottomNav onOpenAddModal={() => setIsAddModalOpen(true)} />
+      <BottomNav onOpenAddModal={handleOpenAdd} />
 
       <AddTransactionModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingTransaction(null);
+        }}
         categories={categories}
         accounts={accounts}
         incomeSources={[]}
+        editingTransaction={editingTransaction}
+        onSuccess={fetchData}
+      />
+
+      <GoogleSetupModal
+        isOpen={isSetupModalOpen}
+        onClose={() => setIsSetupModalOpen(false)}
         onSuccess={fetchData}
       />
     </div>
   );
 }
+

@@ -66,7 +66,12 @@ export default function SettingsPage() {
             <p className="text-xs font-semibold">Loading Settings...</p>
           </div>
         ) : (
-          <SettingsOverview settings={settings} isMock={isMock} />
+          <SettingsOverview
+            settings={settings}
+            categories={categories}
+            isMock={isMock}
+            onRefreshData={fetchData}
+          />
         )}
       </main>
 

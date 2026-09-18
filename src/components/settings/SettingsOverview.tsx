@@ -1,22 +1,106 @@
 'use client';
 
-import React from 'react';
-import { UserSettings } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { UserSettings, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { Settings, ShieldCheck, FileSpreadsheet, Key, CheckCircle2 } from 'lucide-react';
+import { Settings, ShieldCheck, FileSpreadsheet, CheckCircle2, Mail, Link as LinkIcon, Clock, Tag, Plus } from 'lucide-react';
+import { GoogleSetupModal } from '@/components/shared/GoogleSetupModal';
+import { AddCategoryModal } from '@/components/categories/AddCategoryModal';
 
 interface SettingsOverviewProps {
   settings: UserSettings;
+  categories?: Category[];
   isMock: boolean;
   onUpdateSettings?: (data: Partial<UserSettings>) => Promise<void>;
+  onRefreshData?: () => void;
 }
 
-export function SettingsOverview({ settings, isMock }: SettingsOverviewProps) {
+export function SettingsOverview({ settings, categories = [], isMock, onRefreshData }: SettingsOverviewProps) {
+  const [userGmail, setUserGmail] = useState<string | null>(null);
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const [setupComplete, setSetupComplete] = useState<boolean>(false);
+  const [setupAt, setSetupAt] = useState<string | null>(null);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  const loadLocalStorageConfig = () => {
+    setUserGmail(localStorage.getItem('google_user_gmail'));
+    setSheetId(localStorage.getItem('google_sheet_id'));
+    setSetupComplete(localStorage.getItem('google_sheets_setup_complete') === 'true');
+    setSetupAt(localStorage.getItem('google_sheets_setup_at'));
+  };
+
+  useEffect(() => {
+    loadLocalStorageConfig();
+  }, []);
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-bold text-slate-100">Settings & Google Sheets Integration</h2>
         <p className="text-xs text-slate-400">Application defaults & Google Cloud connection status</p>
+      </div>
+
+      {/* Local Storage Connection Details Card */}
+      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Stored Google Account & Sheet Config
+          </h3>
+          <button
+            onClick={() => setIsSetupModalOpen(true)}
+            className="text-xs font-semibold px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition"
+          >
+            {setupComplete ? 'Reconfigure Sheet' : 'Connect Sheet'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+            <span className="text-slate-400 flex items-center gap-1">
+              <Mail className="w-3.5 h-3.5 text-emerald-400" /> Gmail Address
+            </span>
+            <span className="font-semibold text-slate-100 block truncate">
+              {userGmail || 'Not configured in Local Storage'}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+            <span className="text-slate-400 flex items-center gap-1">
+              <LinkIcon className="w-3.5 h-3.5 text-emerald-400" /> Target Sheet ID
+            </span>
+            <span className="font-mono text-slate-100 block truncate">
+              {sheetId || 'Not configured in Local Storage'}
+            </span>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2
+              className={`w-4 h-4 ${setupComplete ? 'text-emerald-400' : 'text-amber-400'}`}
+            />
+            <span className="text-slate-300 font-medium">
+              Workbook & Sheets Structure Status:
+            </span>
+          </div>
+          <span
+            className={`font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
+              setupComplete
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+            }`}
+          >
+            {setupComplete ? 'Structure Verified (7/7 Sheets)' : 'Pending Setup'}
+          </span>
+        </div>
+
+        {setupAt && (
+          <p className="text-[11px] text-slate-500 flex items-center gap-1 pt-1">
+            <Clock className="w-3 h-3 text-slate-500" />
+            Last setup completed on {new Date(setupAt).toLocaleString()}
+          </p>
+        )}
       </div>
 
       {/* Sync Mode Status Card */}
@@ -81,6 +165,49 @@ export function SettingsOverview({ settings, isMock }: SettingsOverviewProps) {
         </div>
       </div>
 
+      {/* Categories Management Card */}
+      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <Tag className="w-4 h-4 text-emerald-400" /> Categories ({categories.length})
+          </h3>
+          <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold shadow-md shadow-emerald-500/20 transition active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> Add Category
+          </button>
+        </div>
+
+        {categories.length === 0 ? (
+          <p className="text-xs text-slate-400 italic p-3 rounded-xl bg-slate-950 border border-slate-800 text-center">
+            No categories defined yet. Click &quot;Add Category&quot; above to create one.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {categories.map((cat) => (
+              <div
+                key={cat.id}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs"
+              >
+                <span className="font-semibold text-slate-200">{cat.name}</span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                    cat.type === 'income'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : cat.type === 'expense'
+                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                  }`}
+                >
+                  {cat.type}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Google Sheets Setup Instructions */}
       <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
         <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
@@ -108,10 +235,27 @@ GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY----
 
           <div className="flex items-center gap-2 pt-2 text-emerald-400 text-xs font-semibold">
             <CheckCircle2 className="w-4 h-4" />
-            <span>Automatic Worksheet Setup: App auto-creates all 7 required worksheets on first sync!</span>
+            <span>Automatic Worksheet Setup: App auto-creates all 7 required worksheets on setup!</span>
           </div>
         </div>
       </div>
+
+      <GoogleSetupModal
+        isOpen={isSetupModalOpen}
+        onClose={() => setIsSetupModalOpen(false)}
+        onSuccess={() => {
+          loadLocalStorageConfig();
+        }}
+      />
+
+      <AddCategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSuccess={() => {
+          if (onRefreshData) onRefreshData();
+        }}
+      />
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ interface HeaderProps {
   lastSyncedAt: string | null;
   isMock: boolean;
   onSyncComplete: () => void;
+  onOpenSetupModal?: () => void;
 }
 
 export function Header({
@@ -20,6 +21,7 @@ export function Header({
   lastSyncedAt,
   isMock,
   onSyncComplete,
+  onOpenSetupModal,
 }: HeaderProps) {
   // Generate month options (past 12 months + current month)
   const monthOptions = Array.from({ length: 12 }).map((_, i) => {
@@ -41,7 +43,7 @@ export function Header({
           </div>
           <div>
             <h1 className="text-base font-bold text-slate-100 tracking-tight leading-tight">
-              Akar Finance
+              Budgeti
             </h1>
             <p className="text-[10px] text-slate-400 font-medium">Personal Finance System</p>
           </div>
@@ -91,13 +93,24 @@ export function Header({
         </div>
       </div>
 
-      <div className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl mt-2 flex justify-end">
-        <SyncBadge
-          lastSyncedAt={lastSyncedAt}
-          isMock={isMock}
-          onSyncComplete={onSyncComplete}
-        />
+      <div className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl mt-2 flex items-center justify-between gap-2">
+        {onOpenSetupModal && (
+          <button
+            onClick={onOpenSetupModal}
+            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition"
+          >
+            <span>Connect Google Sheet</span>
+          </button>
+        )}
+        <div className="ml-auto">
+          <SyncBadge
+            lastSyncedAt={lastSyncedAt}
+            isMock={isMock}
+            onSyncComplete={onSyncComplete}
+          />
+        </div>
       </div>
     </header>
   );
 }
+

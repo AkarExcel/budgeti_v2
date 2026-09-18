@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TransactionSchema, TransactionInput } from '@/lib/validation/schemas';
-import { Category, Account, IncomeSource } from '@/types';
-import { X, ArrowDownRight, ArrowUpRight, Loader2 } from 'lucide-react';
+import { Category, Account, IncomeSource, Transaction } from '@/types';
+import { X, ArrowDownRight, ArrowUpRight, Loader2, Plus } from 'lucide-react';
 import { getCurrentDateStr } from '@/lib/utils/formatters';
+import { AddCategoryModal } from '@/components/categories/AddCategoryModal';
+import { AddAccountModal } from '@/components/accounts/AddAccountModal';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface AddTransactionModalProps {
   categories: Category[];
   accounts: Account[];
   incomeSources: IncomeSource[];
+  editingTransaction?: Transaction | null;
   onSuccess: () => void;
 }
 
@@ -23,11 +26,14 @@ export function AddTransactionModal({
   categories = [],
   accounts = [],
   incomeSources = [],
+  editingTransaction = null,
   onSuccess,
 }: AddTransactionModalProps) {
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   const {
     register,
@@ -48,6 +54,34 @@ export function AddTransactionModal({
     },
   });
 
+  useEffect(() => {
+    if (editingTransaction) {
+      setTransactionType(editingTransaction.type);
+      reset({
+        id: editingTransaction.id,
+        type: editingTransaction.type,
+        date: editingTransaction.date,
+        description: editingTransaction.description,
+        category: editingTransaction.category,
+        amount: editingTransaction.amount,
+        account: editingTransaction.account,
+        payment_method: editingTransaction.payment_method || 'Transfer',
+        notes: editingTransaction.notes || '',
+      });
+    } else if (isOpen) {
+      setTransactionType('expense');
+      reset({
+        type: 'expense',
+        date: getCurrentDateStr(),
+        description: '',
+        category: categories.find((c) => c.type === 'expense')?.name || '',
+        account: accounts[0]?.name || 'GTBank',
+        payment_method: 'Transfer',
+        notes: '',
+      });
+    }
+  }, [editingTransaction, isOpen]);
+
   const handleTypeToggle = (type: 'income' | 'expense') => {
     setTransactionType(type);
     setValue('type', type);
@@ -64,24 +98,26 @@ export function AddTransactionModal({
     setIsSubmitting(true);
     setServerError(null);
 
+    const isEditing = Boolean(editingTransaction?.id);
+
     try {
       const response = await fetch('/api/transactions', {
-        method: 'POST',
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(isEditing ? { id: editingTransaction!.id, ...data } : data),
       });
 
       const resData = await response.json();
 
       if (!response.ok || !resData.success) {
-        throw new Error(resData.message || 'Failed to record transaction');
+        throw new Error(resData.message || `Failed to ${isEditing ? 'update' : 'record'} transaction`);
       }
 
       reset();
       onSuccess();
       onClose();
     } catch (err: any) {
-      setServerError(err?.message || 'Failed to submit transaction');
+      setServerError(err?.message || `Failed to ${isEditing ? 'update' : 'submit'} transaction`);
     } finally {
       setIsSubmitting(false);
     }
@@ -98,7 +134,9 @@ export function AddTransactionModal({
       <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-900/50">
-          <h2 className="text-lg font-bold text-slate-100">Add New Transaction</h2>
+          <h2 className="text-lg font-bold text-slate-100">
+            {editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
+          </h2>
           <button
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
@@ -159,9 +197,19 @@ export function AddTransactionModal({
 
           {/* Category / Income Source */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              {transactionType === 'income' ? 'Income Source / Category *' : 'Category *'}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-300">
+                {transactionType === 'income' ? 'Income Source / Category *' : 'Category *'}
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Category
+              </button>
+            </div>
             <select
               {...register('category')}
               className="w-full bg-slate-950 text-slate-200 text-sm py-2.5 px-3 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500"
@@ -219,7 +267,17 @@ export function AddTransactionModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Account *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-300">Account *</label>
+                <button
+                  type="button"
+                  onClick={() => setIsAccountModalOpen(true)}
+                  className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5 transition"
+                >
+                  <Plus className="w-3 h-3" />
+                  New Account
+                </button>
+              </div>
               <select
                 {...register('account')}
                 className="w-full bg-slate-950 text-slate-200 text-xs py-2.5 px-3 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500"
@@ -285,10 +343,30 @@ export function AddTransactionModal({
             {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {isSubmitting
               ? 'Saving to Google Sheets...'
+              : editingTransaction
+              ? 'Update Transaction'
               : `Add ${transactionType === 'expense' ? 'Expense' : 'Income'}`}
           </button>
         </form>
       </div>
+
+      <AddCategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        defaultType={transactionType}
+        onSuccess={onSuccess}
+      />
+
+      <AddAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        onSuccess={(newAccountName) => {
+          onSuccess();
+          if (newAccountName) {
+            setValue('account', newAccountName);
+          }
+        }}
+      />
     </div>
   );
 }

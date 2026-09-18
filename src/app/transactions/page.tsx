@@ -19,6 +19,7 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const fetchData = async () => {
     try {
@@ -46,11 +47,25 @@ export default function TransactionsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this transaction?')) return;
     try {
-      await fetch(`/api/transactions?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/transactions?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.message || 'Failed to delete transaction');
+      }
       fetchData();
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleOpenAdd = () => {
+    setEditingTransaction(null);
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsAddModalOpen(true);
   };
 
   return (
@@ -74,21 +89,25 @@ export default function TransactionsPage() {
             transactions={transactions}
             categories={categories}
             accounts={accounts}
-            onAddTransaction={() => setIsAddModalOpen(true)}
-            onEditTransaction={(tx) => console.log('Edit tx', tx)}
+            onAddTransaction={handleOpenAdd}
+            onEditTransaction={handleOpenEdit}
             onDeleteTransaction={handleDelete}
           />
         )}
       </main>
 
-      <BottomNav onOpenAddModal={() => setIsAddModalOpen(true)} />
+      <BottomNav onOpenAddModal={handleOpenAdd} />
 
       <AddTransactionModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingTransaction(null);
+        }}
         categories={categories}
         accounts={accounts}
         incomeSources={[]}
+        editingTransaction={editingTransaction}
         onSuccess={fetchData}
       />
     </div>

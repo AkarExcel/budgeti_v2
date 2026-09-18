@@ -84,6 +84,7 @@ export default function BudgetPage() {
             selectedMonth={selectedMonth}
             onSaveBudget={handleSaveBudget}
             onDeleteBudget={handleDeleteBudget}
+            onRefreshData={fetchData}
           />
         )}
       </main>

@@ -5,6 +5,7 @@ import { Budget, Category, Transaction } from '@/types';
 import { calculateBudgetSpent, calculateBudgetPercentage, calculateBudgetRemaining } from '@/lib/calculations/finance';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { Plus, AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react';
+import { AddCategoryModal } from '@/components/categories/AddCategoryModal';
 
 interface BudgetOverviewProps {
   budgets: Budget[];
@@ -13,6 +14,7 @@ interface BudgetOverviewProps {
   selectedMonth: string;
   onSaveBudget: (budget: { month: string; category: string; budget_amount: number }) => Promise<void>;
   onDeleteBudget: (id: string) => Promise<void>;
+  onRefreshData?: () => void;
 }
 
 export function BudgetOverview({
@@ -22,11 +24,13 @@ export function BudgetOverview({
   selectedMonth,
   onSaveBudget,
   onDeleteBudget,
+  onRefreshData,
 }: BudgetOverviewProps) {
   const [showModal, setShowModal] = useState(false);
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const currentBudgets = budgets.filter((b) => b.month === selectedMonth);
 
@@ -136,7 +140,17 @@ export function BudgetOverview({
             <h3 className="text-base font-bold text-slate-100">Set Category Budget</h3>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Category</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-300">Category</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Category
+                  </button>
+                </div>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
@@ -184,6 +198,15 @@ export function BudgetOverview({
           </div>
         </div>
       )}
+
+      <AddCategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        defaultType="expense"
+        onSuccess={() => {
+          if (onRefreshData) onRefreshData();
+        }}
+      />
     </div>
   );
 }
