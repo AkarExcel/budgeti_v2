@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Akar Finance - Personal Finance',
-    short_name: 'Akar Finance',
+    name: 'Budgeti - Personal Finance',
+    short_name: 'Budgeti',
     description: 'Mobile-first personal finance, budgeting, income & expense tracking system',
     start_url: '/',
     display: 'standalone',

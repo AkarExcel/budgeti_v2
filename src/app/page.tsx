@@ -127,7 +127,7 @@ export default function DashboardPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-            <p className="text-xs font-semibold">Loading Akar Finance Dashboard...</p>
+            <p className="text-xs font-semibold">Loading Budgeti Dashboard...</p>
           </div>
         ) : (
           <>

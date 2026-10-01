@@ -1,6 +1,6 @@
-# Akar Finance - Mobile-First Personal Finance Web Application
+# Budgeti - Mobile-First Personal Finance Web Application
 
-Akar Finance is a production-ready, mobile-first personal finance tracking, budgeting, income, expense, savings, and financial goals management system built with Next.js (App Router), TypeScript, Tailwind CSS, Zod, React Hook Form, and Recharts.
+Budgeti is a production-ready, mobile-first personal finance tracking, budgeting, income, expense, savings, and financial goals management system built with Next.js (App Router), TypeScript, Tailwind CSS, Zod, React Hook Form, and Recharts.
 
 It uses Google Sheets as its primary data store with two-way data synchronization and features a clean repository abstraction layer (`IFinanceRepository`) to enable seamless future migration to PostgreSQL without UI rebuilds.
 
@@ -111,7 +111,7 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=akar-sheets-sync@your-project.iam.gserviceaccount.c
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYourKeyHere\n-----END PRIVATE KEY-----\n"
 ```
 
-*Note: On first synchronization, Akar Finance automatically bootstraps all 7 worksheets with standard headers if they are missing or empty.*
+*Note: On first synchronization, Budgeti automatically bootstraps all 7 worksheets with standard headers if they are missing or empty.*
 
 ---
 
@@ -132,7 +132,7 @@ Verify the complete core application flow:
 4. **App & Sheets Update**: The transaction appears in the list and dashboard totals immediately update by -₦5,000.
 5. **Google Sheets Sync**: Open your connected Google Sheet's `Transactions` tab. The row with ₦5,000 appears.
 6. **External Sheets Edit**: In Google Sheets, edit the amount from `5000` to `6000`.
-7. **Two-Way Sync**: Return to Akar Finance and tap **Sync Now** in the header.
+7. **Two-Way Sync**: Return to Budgeti and tap **Sync Now** in the header.
 8. **Data Verification**: The transaction updates to ₦6,000, and dashboard calculations update automatically.
 9. **Budget Management**: Go to the **Budget** tab. Set a monthly budget for Food (e.g., ₦80,000). Spent, remaining, and percentage bars update live.
 10. **Financial Goals**: Go to **Goals**. Create a goal for `Emergency Fund` (Target: ₦1,000,000, Current: ₦450,000). Tap **Update Progress** to increment savings.
@@ -153,7 +153,7 @@ Verify the complete core application flow:
 
 ## Future PostgreSQL Migration Plan
 
-Akar Finance uses a repository pattern (`IFinanceRepository` in `src/lib/data/repository.ts`).
+Budgeti uses a repository pattern (`IFinanceRepository` in `src/lib/data/repository.ts`).
 
 To migrate from Google Sheets to PostgreSQL:
 1. Create a `PgRepository` implementing `IFinanceRepository` using Prisma / Drizzle ORM.

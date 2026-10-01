@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'Akar Finance - Mobile Personal Finance & Budgeting System',
+  title: 'Budgeti - Mobile Personal Finance & Budgeting System',
   description: 'Production-ready mobile-first personal finance application with Google Sheets API synchronization',
   manifest: '/manifest.json',
   icons: {
