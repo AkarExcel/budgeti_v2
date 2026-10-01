@@ -78,7 +78,7 @@ export function BudgetOverview({
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition active:scale-95"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" /> Set Category Budget
+            <Plus className="w-4 h-4 stroke-[2.5]" /> 
           </button>
         </div>
       </div>
@@ -87,7 +87,7 @@ export function BudgetOverview({
         <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2">
           <p className="text-sm font-bold text-slate-200">No budget created for this month</p>
           <p className="text-xs text-slate-400">
-            Click &quot;Set Category Budget&quot; to define monthly spending targets.
+            Click &quot;Set Budget&quot; to define monthly spending targets.
           </p>
         </div>
       ) : (
@@ -162,7 +162,7 @@ export function BudgetOverview({
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-            <h3 className="text-base font-bold text-slate-100">Set Category Budget</h3>
+            <h3 className="text-base font-bold text-slate-100">Set Budget</h3>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -358,7 +358,7 @@ function CopyBudgetButton({
           <rect x="9" y="9" width="13" height="13" rx="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
-        Copy Month
+      
       </button>
 
       {open && (
