@@ -9,6 +9,9 @@ import { BudgetProgressWidget } from '@/components/dashboard/BudgetProgressWidge
 import { GoalsProgressWidget } from '@/components/dashboard/GoalsProgressWidget';
 import { AddTransactionModal } from '@/components/transactions/AddTransactionModal';
 import { GoogleSetupModal } from '@/components/shared/GoogleSetupModal';
+import { HabitReminderBanner } from '@/components/notifications/HabitReminderBanner';
+import { NotificationBellModal } from '@/components/notifications/NotificationBellModal';
+import { useHabitReminders } from '@/lib/notifications/useHabitReminders';
 import { getCurrentMonthStr } from '@/lib/utils/formatters';
 import {
   calculateTotalIncome,
@@ -43,7 +46,30 @@ export default function DashboardPage() {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const handleOpenAdd = () => {
+    setEditingTransaction(null);
+    setIsAddModalOpen(true);
+  };
+
+  const {
+    settings: reminderSettings,
+    habitStatus,
+    activeReminder,
+    history: notificationHistory,
+    unreadCount,
+    snoozeReminder,
+    dismissReminder,
+    markReminderRead,
+    triggerTestReminder,
+  } = useHabitReminders({
+    transactions,
+    goals,
+    budgets,
+    onOpenAddModal: handleOpenAdd,
+  });
 
   const fetchData = async () => {
     try {
@@ -102,11 +128,6 @@ export default function DashboardPage() {
   );
   const budgetRemaining = monthlyBudget - budgetSpent;
 
-  const handleOpenAdd = () => {
-    setEditingTransaction(null);
-    setIsAddModalOpen(true);
-  };
-
   const handleSelectTransaction = (tx: Transaction) => {
     setEditingTransaction(tx);
     setIsAddModalOpen(true);
@@ -121,6 +142,9 @@ export default function DashboardPage() {
         isMock={isMock}
         onSyncComplete={fetchData}
         onOpenSetupModal={() => setIsSetupModalOpen(true)}
+        unreadNotificationsCount={unreadCount}
+        onOpenNotificationModal={() => setIsNotificationModalOpen(true)}
+        habitStreak={habitStatus.streak}
       />
 
       <main className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4 space-y-4">
@@ -131,6 +155,15 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
+            {/* Habit Reminder & Daily Consistency Prompt */}
+            <HabitReminderBanner
+              reminder={activeReminder}
+              habitStatus={habitStatus}
+              onOpenAddModal={handleOpenAdd}
+              onSnooze={snoozeReminder}
+              onDismiss={dismissReminder}
+            />
+
             {/* Balance Hero Card */}
             <BalanceOverviewCard
               totalBalance={totalBalance}
@@ -177,6 +210,17 @@ export default function DashboardPage() {
         incomeSources={[]}
         editingTransaction={editingTransaction}
         onSuccess={fetchData}
+      />
+
+      <NotificationBellModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        history={notificationHistory}
+        habitStatus={habitStatus}
+        settings={reminderSettings}
+        onTriggerTest={triggerTestReminder}
+        onMarkRead={markReminderRead}
+        onOpenAddModal={handleOpenAdd}
       />
 
       <GoogleSetupModal

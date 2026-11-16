@@ -5,6 +5,8 @@ import { Header } from '@/components/shared/Header';
 import { BottomNav } from '@/components/shared/BottomNav';
 import { GoalsOverview } from '@/components/goals/GoalsOverview';
 import { AddTransactionModal } from '@/components/transactions/AddTransactionModal';
+import { NotificationBellModal } from '@/components/notifications/NotificationBellModal';
+import { useHabitReminders } from '@/lib/notifications/useHabitReminders';
 import { getCurrentMonthStr } from '@/lib/utils/formatters';
 import { FinancialGoal, Category, Account } from '@/types';
 import { Loader2 } from 'lucide-react';
@@ -19,6 +21,19 @@ export default function GoalsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+
+  const {
+    settings: reminderSettings,
+    habitStatus,
+    history: notificationHistory,
+    unreadCount,
+    markReminderRead,
+    triggerTestReminder,
+  } = useHabitReminders({
+    goals,
+    onOpenAddModal: () => setIsAddModalOpen(true),
+  });
 
   const fetchData = async () => {
     try {
@@ -69,6 +84,9 @@ export default function GoalsPage() {
         lastSyncedAt={lastSyncedAt}
         isMock={isMock}
         onSyncComplete={fetchData}
+        unreadNotificationsCount={unreadCount}
+        onOpenNotificationModal={() => setIsNotificationModalOpen(true)}
+        habitStreak={habitStatus.streak}
       />
 
       <main className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4">
@@ -95,6 +113,17 @@ export default function GoalsPage() {
         accounts={accounts}
         incomeSources={[]}
         onSuccess={fetchData}
+      />
+
+      <NotificationBellModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        history={notificationHistory}
+        habitStatus={habitStatus}
+        settings={reminderSettings}
+        onTriggerTest={triggerTestReminder}
+        onMarkRead={markReminderRead}
+        onOpenAddModal={() => setIsAddModalOpen(true)}
       />
     </div>
   );

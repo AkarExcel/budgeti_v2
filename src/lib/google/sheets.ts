@@ -180,7 +180,7 @@ export async function ensureSpreadsheetStructure(force = false): Promise<boolean
 
   try {
     const meta = await sheets.spreadsheets.get({ spreadsheetId });
-    const existingSheetNames = meta.data.sheets?.map((s) => s.properties?.title) || [];
+    const existingSheetNames = meta.data.sheets?.map((s: any) => s.properties?.title) || [];
 
     for (const [sheetKey, name] of Object.entries(SHEET_NAMES)) {
       if (!existingSheetNames.includes(name)) {

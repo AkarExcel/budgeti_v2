@@ -5,6 +5,8 @@ import { Header } from '@/components/shared/Header';
 import { BottomNav } from '@/components/shared/BottomNav';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { AddTransactionModal } from '@/components/transactions/AddTransactionModal';
+import { NotificationBellModal } from '@/components/notifications/NotificationBellModal';
+import { useHabitReminders } from '@/lib/notifications/useHabitReminders';
 import { getCurrentMonthStr } from '@/lib/utils/formatters';
 import { Transaction, Category, Account } from '@/types';
 import { Loader2 } from 'lucide-react';
@@ -19,7 +21,25 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const handleOpenAdd = () => {
+    setEditingTransaction(null);
+    setIsAddModalOpen(true);
+  };
+
+  const {
+    settings: reminderSettings,
+    habitStatus,
+    history: notificationHistory,
+    unreadCount,
+    markReminderRead,
+    triggerTestReminder,
+  } = useHabitReminders({
+    transactions,
+    onOpenAddModal: handleOpenAdd,
+  });
 
   const fetchData = async () => {
     try {
@@ -58,11 +78,6 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleOpenAdd = () => {
-    setEditingTransaction(null);
-    setIsAddModalOpen(true);
-  };
-
   const handleOpenEdit = (tx: Transaction) => {
     setEditingTransaction(tx);
     setIsAddModalOpen(true);
@@ -76,6 +91,9 @@ export default function TransactionsPage() {
         lastSyncedAt={lastSyncedAt}
         isMock={isMock}
         onSyncComplete={fetchData}
+        unreadNotificationsCount={unreadCount}
+        onOpenNotificationModal={() => setIsNotificationModalOpen(true)}
+        habitStreak={habitStatus.streak}
       />
 
       <main className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4">
@@ -109,6 +127,17 @@ export default function TransactionsPage() {
         incomeSources={[]}
         editingTransaction={editingTransaction}
         onSuccess={fetchData}
+      />
+
+      <NotificationBellModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
+        history={notificationHistory}
+        habitStatus={habitStatus}
+        settings={reminderSettings}
+        onTriggerTest={triggerTestReminder}
+        onMarkRead={markReminderRead}
+        onOpenAddModal={handleOpenAdd}
       />
     </div>
   );

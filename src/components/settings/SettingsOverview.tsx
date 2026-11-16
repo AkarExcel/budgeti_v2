@@ -6,6 +6,8 @@ import { formatCurrency } from '@/lib/utils/formatters';
 import { Settings, ShieldCheck, FileSpreadsheet, CheckCircle2, Mail, Link as LinkIcon, Clock, Tag, Plus } from 'lucide-react';
 import { GoogleSetupModal } from '@/components/shared/GoogleSetupModal';
 import { AddCategoryModal } from '@/components/categories/AddCategoryModal';
+import { NotificationSettingsCard } from '@/components/notifications/NotificationSettingsCard';
+import { useHabitReminders } from '@/lib/notifications/useHabitReminders';
 
 interface SettingsOverviewProps {
   settings: UserSettings;
@@ -22,6 +24,14 @@ export function SettingsOverview({ settings, categories = [], isMock, onRefreshD
   const [setupAt, setSetupAt] = useState<string | null>(null);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+
+  const {
+    settings: reminderSettings,
+    updateSettings: updateReminderSettings,
+    permission: notificationPermission,
+    requestPermission: requestNotificationPermission,
+    triggerTestReminder,
+  } = useHabitReminders();
 
   const loadLocalStorageConfig = () => {
     setUserGmail(localStorage.getItem('google_user_gmail'));
@@ -164,6 +174,15 @@ export function SettingsOverview({ settings, categories = [], isMock, onRefreshD
           </div>
         </div>
       </div>
+
+      {/* Habit & Reminder Algorithm Settings Card */}
+      <NotificationSettingsCard
+        settings={reminderSettings}
+        onUpdateSettings={updateReminderSettings}
+        permission={notificationPermission}
+        onRequestPermission={requestNotificationPermission}
+        onTriggerTest={triggerTestReminder}
+      />
 
       {/* Categories Management Card */}
       <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">

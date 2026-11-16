@@ -79,3 +79,6 @@ export interface SyncStatus {
   message?: string;
   isMock: boolean;
 }
+
+export * from './notifications';
+

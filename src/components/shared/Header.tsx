@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { SyncBadge } from './SyncBadge';
-import { Settings, Target, Wallet, Calendar } from 'lucide-react';
+import { Settings, Target, Wallet, Calendar, Bell, Flame } from 'lucide-react';
 import { getMonthYearString } from '@/lib/utils/formatters';
 
 interface HeaderProps {
@@ -13,6 +13,9 @@ interface HeaderProps {
   isMock: boolean;
   onSyncComplete: () => void;
   onOpenSetupModal?: () => void;
+  unreadNotificationsCount?: number;
+  onOpenNotificationModal?: () => void;
+  habitStreak?: number;
 }
 
 export function Header({
@@ -22,6 +25,9 @@ export function Header({
   isMock,
   onSyncComplete,
   onOpenSetupModal,
+  unreadNotificationsCount = 0,
+  onOpenNotificationModal,
+  habitStreak,
 }: HeaderProps) {
   // Generate month options (past 12 months + current month)
   const monthOptions = Array.from({ length: 12 }).map((_, i) => {
@@ -42,9 +48,20 @@ export function Header({
             ₦
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-100 tracking-tight leading-tight">
-              Budgeti
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-bold text-slate-100 tracking-tight leading-tight">
+                Budgeti
+              </h1>
+              {habitStreak !== undefined && habitStreak > 0 && (
+                <div
+                  className="flex items-center gap-0.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20"
+                  title={`${habitStreak}-day habit tracking streak`}
+                >
+                  <Flame className="w-2.5 h-2.5 fill-amber-400" />
+                  <span>{habitStreak}d</span>
+                </div>
+              )}
+            </div>
             <p className="text-[10px] text-slate-400 font-medium">Personal Finance System</p>
           </div>
         </div>
@@ -68,6 +85,21 @@ export function Header({
 
           {/* Settings & Extra icons */}
           <div className="flex items-center gap-1">
+            {onOpenNotificationModal && (
+              <button
+                type="button"
+                onClick={onOpenNotificationModal}
+                className="relative p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 border border-slate-700 transition"
+                title="Financial Habit & Reminders"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-slate-950 text-[9px] font-extrabold flex items-center justify-center animate-pulse">
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+            )}
             <Link
               href="/goals"
               className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 border border-slate-700 transition"
