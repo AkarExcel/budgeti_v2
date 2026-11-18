@@ -26,6 +26,7 @@ interface NotificationSettingsCardProps {
   permission: NotificationPermission;
   onRequestPermission: () => Promise<NotificationPermission>;
   onTriggerTest: () => void;
+  isMock?: boolean;
 }
 
 export function NotificationSettingsCard({
@@ -34,8 +35,19 @@ export function NotificationSettingsCard({
   permission,
   onRequestPermission,
   onTriggerTest,
+  isMock,
 }: NotificationSettingsCardProps) {
   const [testSent, setTestSent] = useState(false);
+
+  // Only display test cues when using mock data and in development mode
+  const isDev = process.env.NODE_ENV === 'development';
+  const isMockMode = Boolean(
+    isMock ||
+    (typeof window !== 'undefined' &&
+      (localStorage.getItem('google_sheets_mode') === 'mock' ||
+        localStorage.getItem('budgeti_mock_active') === 'true'))
+  );
+  const showTestCue = isDev && isMockMode;
 
   const handleTest = () => {
     onTriggerTest();
@@ -298,20 +310,22 @@ export function NotificationSettingsCard({
             </div>
           </div>
 
-          {/* Test Action */}
-          <div className="pt-1 flex items-center justify-between">
-            <span className="text-xs text-slate-400">
-              Verify sound, vibration, and banner on this device
-            </span>
-            <button
-              type="button"
-              onClick={handleTest}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5 transition"
-            >
-              <Play className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{testSent ? 'Notification Triggered!' : 'Test Cue Now'}</span>
-            </button>
-          </div>
+          {/* Test Action — only visible in development mode with mock data */}
+          {showTestCue && (
+            <div className="pt-1 flex items-center justify-between">
+              <span className="text-xs text-slate-400">
+                Verify sound, vibration, and banner on this device
+              </span>
+              <button
+                type="button"
+                onClick={handleTest}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5 transition"
+              >
+                <Play className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{testSent ? 'Notification Triggered!' : 'Test Cue Now'}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

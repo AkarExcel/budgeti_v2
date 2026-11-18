@@ -31,6 +31,10 @@ import {
 const SETTINGS_STORAGE_KEY = 'budgeti_habit_reminder_settings';
 const HISTORY_STORAGE_KEY = 'budgeti_habit_notification_history';
 
+const EMPTY_TRANSACTIONS: Transaction[] = [];
+const EMPTY_GOALS: FinancialGoal[] = [];
+const EMPTY_BUDGETS: Budget[] = [];
+
 interface UseHabitRemindersProps {
   transactions?: Transaction[];
   goals?: FinancialGoal[];
@@ -39,9 +43,9 @@ interface UseHabitRemindersProps {
 }
 
 export function useHabitReminders({
-  transactions = [],
-  goals = [],
-  budgets = [],
+  transactions = EMPTY_TRANSACTIONS,
+  goals = EMPTY_GOALS,
+  budgets = EMPTY_BUDGETS,
   onOpenAddModal,
 }: UseHabitRemindersProps = {}) {
   const [settings, setSettings] = useState<HabitNotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
@@ -50,11 +54,24 @@ export function useHabitReminders({
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isClient, setIsClient] = useState(false);
 
-  // Keep ref to latest onOpenAddModal to avoid stale closures
+  // Keep refs to avoid infinite loops and stale closures in callbacks
+  const transactionsRef = useRef(transactions);
+  const goalsRef = useRef(goals);
+  const budgetsRef = useRef(budgets);
+  const settingsRef = useRef(settings);
+  const historyRef = useRef(history);
+  const permissionRef = useRef(permission);
   const onOpenAddModalRef = useRef(onOpenAddModal);
+
   useEffect(() => {
+    transactionsRef.current = transactions;
+    goalsRef.current = goals;
+    budgetsRef.current = budgets;
+    settingsRef.current = settings;
+    historyRef.current = history;
+    permissionRef.current = permission;
     onOpenAddModalRef.current = onOpenAddModal;
-  }, [onOpenAddModal]);
+  });
 
   // Load settings and history from localStorage on mount
   useEffect(() => {
@@ -95,15 +112,24 @@ export function useHabitReminders({
     });
   }, []);
 
-  // Save history to localStorage
-  const saveHistory = useCallback((newHistory: NotificationHistoryRecord[]) => {
-    // Keep at most 50 historical entries
-    const trimmed = newHistory.slice(0, 50);
-    setHistory(trimmed);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
-    }
-  }, []);
+  // Save history to state and localStorage (supports functional updater)
+  const saveHistory = useCallback(
+    (updater: NotificationHistoryRecord[] | ((prev: NotificationHistoryRecord[]) => NotificationHistoryRecord[])) => {
+      setHistory((prev) => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        const trimmed = next.slice(0, 50);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+          } catch {
+            // ignore
+          }
+        }
+        return trimmed;
+      });
+    },
+    []
+  );
 
   // Habit status
   const habitStatus: HabitStatus = getHabitStatus({
@@ -116,43 +142,60 @@ export function useHabitReminders({
 
   // Check reminders
   const checkAndTriggerReminders = useCallback(() => {
-    if (!settings.enabled) {
-      setActiveReminder(null);
+    const curSettings = settingsRef.current;
+    if (!curSettings.enabled) {
+      setActiveReminder((prev) => (prev ? null : prev));
       return;
     }
 
     const now = new Date();
+    const curTransactions = transactionsRef.current;
+    const curGoals = goalsRef.current;
+    const curBudgets = budgetsRef.current;
+    const curHistory = historyRef.current;
+    const curPermission = permissionRef.current;
+
     const evaluation = evaluateHabitReminder({
       currentTime: now,
-      transactions,
-      goals,
-      budgets,
-      settings,
-      history,
+      transactions: curTransactions,
+      goals: curGoals,
+      budgets: curBudgets,
+      settings: curSettings,
+      history: curHistory,
     });
 
     if (evaluation.shouldNotify && evaluation.reminder) {
       const reminder = evaluation.reminder;
-      setActiveReminder(reminder);
+      setActiveReminder((prev) => {
+        if (
+          prev &&
+          prev.id === reminder.id &&
+          prev.title === reminder.title &&
+          prev.message === reminder.message
+        ) {
+          return prev;
+        }
+        return reminder;
+      });
 
       // Check if this reminder was already dispatched as a system notification
-      const alreadySent = history.some(
+      const alreadySent = curHistory.some(
         (h) => h.id === reminder.id && (h.status === 'sent' || h.status === 'snoozed' || h.status === 'dismissed')
       );
 
       if (!alreadySent) {
         // Play chime if enabled
-        if (settings.soundEnabled) {
+        if (curSettings.soundEnabled) {
           playNotificationChime();
         }
 
         // Trigger vibration if enabled
-        if (settings.vibrationEnabled) {
+        if (curSettings.vibrationEnabled) {
           triggerVibration();
         }
 
         // Send browser notification if permission granted
-        if (settings.browserNotifications && permission === 'granted') {
+        if (curSettings.browserNotifications && curPermission === 'granted') {
           sendBrowserNotification(reminder, () => {
             if (onOpenAddModalRef.current) {
               onOpenAddModalRef.current();
@@ -168,15 +211,15 @@ export function useHabitReminders({
           createdAt: now.toISOString(),
         };
 
-        saveHistory([newRecord, ...history]);
+        saveHistory((prev) => [newRecord, ...prev]);
       }
     } else {
       // If condition no longer matches (or dismissed), clear active in-app reminder
       if (!evaluation.reminder) {
-        setActiveReminder(null);
+        setActiveReminder((prev) => (prev ? null : prev));
       }
     }
-  }, [settings, transactions, goals, budgets, history, permission, saveHistory]);
+  }, [saveHistory]);
 
   // Periodic reminder checking loop (every 60 seconds)
   useEffect(() => {
@@ -193,74 +236,79 @@ export function useHabitReminders({
       const now = new Date();
       const snoozedUntil = new Date(now.getTime() + minutes * 60000).toISOString();
 
-      const updatedHistory: NotificationHistoryRecord[] = history.map((h) => {
-        if (h.id === reminderId || (activeReminder && h.id === activeReminder.id)) {
-          return { ...h, status: 'snoozed', snoozedUntil };
+      saveHistory((prev) => {
+        const updated = prev.map((h) => {
+          if (h.id === reminderId || (activeReminder && h.id === activeReminder.id)) {
+            return { ...h, status: 'snoozed' as const, snoozedUntil };
+          }
+          return h;
+        });
+
+        if (!updated.some((h) => h.id === reminderId)) {
+          if (activeReminder) {
+            updated.unshift({
+              id: activeReminder.id,
+              reminder: activeReminder,
+              status: 'snoozed',
+              createdAt: now.toISOString(),
+              snoozedUntil,
+            });
+          }
         }
-        return h;
+        return updated;
       });
 
-      if (!updatedHistory.some((h) => h.id === reminderId)) {
-        if (activeReminder) {
-          updatedHistory.unshift({
-            id: activeReminder.id,
-            reminder: activeReminder,
-            status: 'snoozed',
-            createdAt: now.toISOString(),
-            snoozedUntil,
-          });
-        }
-      }
-
-      saveHistory(updatedHistory);
       setActiveReminder(null);
     },
-    [history, activeReminder, saveHistory]
+    [activeReminder, saveHistory]
   );
 
   // Dismiss reminder
   const dismissReminder = useCallback(
     (reminderId: string) => {
       const now = new Date();
-      const updatedHistory: NotificationHistoryRecord[] = history.map((h) => {
-        if (h.id === reminderId || (activeReminder && h.id === activeReminder.id)) {
-          return { ...h, status: 'dismissed' };
+      saveHistory((prev) => {
+        const updated = prev.map((h) => {
+          if (h.id === reminderId || (activeReminder && h.id === activeReminder.id)) {
+            return { ...h, status: 'dismissed' as const };
+          }
+          return h;
+        });
+
+        if (!updated.some((h) => h.id === reminderId)) {
+          if (activeReminder) {
+            updated.unshift({
+              id: activeReminder.id,
+              reminder: activeReminder,
+              status: 'dismissed',
+              createdAt: now.toISOString(),
+            });
+          }
         }
-        return h;
+        return updated;
       });
 
-      if (!updatedHistory.some((h) => h.id === reminderId)) {
-        if (activeReminder) {
-          updatedHistory.unshift({
-            id: activeReminder.id,
-            reminder: activeReminder,
-            status: 'dismissed',
-            createdAt: now.toISOString(),
-          });
-        }
-      }
-
-      saveHistory(updatedHistory);
       setActiveReminder(null);
     },
-    [history, activeReminder, saveHistory]
+    [activeReminder, saveHistory]
   );
 
   // Mark reminder as read
   const markReminderRead = useCallback(
     (reminderId: string) => {
-      const updatedHistory = history.map((h) => {
-        if (h.id === reminderId) {
-          return {
-            ...h,
-            reminder: { ...h.reminder, read: true },
-          };
-        }
-        return h;
-      });
-      saveHistory(updatedHistory);
+      saveHistory((prev) =>
+        prev.map((h) => {
+          if (h.id === reminderId) {
+            return {
+              ...h,
+              reminder: { ...h.reminder, read: true },
+            };
+          }
+          return h;
+        })
+      );
     },
-    [history, saveHistory]
+    [saveHistory]
   );
 
   // Request browser permission
@@ -278,27 +326,33 @@ export function useHabitReminders({
   // Instant test reminder
   const triggerTestReminder = useCallback(() => {
     const now = new Date();
+    const curTransactions = transactionsRef.current;
+    const curGoals = goalsRef.current;
+    const curBudgets = budgetsRef.current;
+    const curSettings = settingsRef.current;
+    const curPermission = permissionRef.current;
+
     const daypart = getDayPart(now);
-    const streak = calculateHabitStreak(transactions, now);
-    const todayTx = getTodayTransactions(transactions, now);
+    const streak = calculateHabitStreak(curTransactions, now);
+    const todayTx = getTodayTransactions(curTransactions, now);
 
     const testReminder = generateContextualReminder({
       currentTime: now,
       daypart,
       streak,
       todayTransactions: todayTx,
-      goals,
-      budgets,
-      settings,
+      goals: curGoals,
+      budgets: curBudgets,
+      settings: curSettings,
     });
 
     testReminder.title = `🔔 [Test] ${testReminder.title}`;
     setActiveReminder(testReminder);
 
-    if (settings.soundEnabled) playNotificationChime();
-    if (settings.vibrationEnabled) triggerVibration();
+    if (curSettings.soundEnabled) playNotificationChime();
+    if (curSettings.vibrationEnabled) triggerVibration();
 
-    if (permission === 'granted' || Notification?.permission === 'granted') {
+    if (curPermission === 'granted' || (typeof Notification !== 'undefined' && Notification.permission === 'granted')) {
       sendBrowserNotification(testReminder, () => {
         if (onOpenAddModalRef.current) {
           onOpenAddModalRef.current();
@@ -312,10 +366,10 @@ export function useHabitReminders({
       status: 'sent',
       createdAt: now.toISOString(),
     };
-    saveHistory([newRecord, ...history]);
+    saveHistory((prev) => [newRecord, ...prev]);
 
     return testReminder;
-  }, [transactions, goals, budgets, settings, permission, history, saveHistory]);
+  }, [saveHistory]);
 
   const unreadCount = history.filter((h) => !h.reminder.read && h.status === 'sent').length;
 

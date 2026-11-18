@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Header } from '@/components/shared/Header';
 import { BottomNav } from '@/components/shared/BottomNav';
 import { ReportsOverview } from '@/components/reports/ReportsOverview';
@@ -8,40 +8,57 @@ import { AddTransactionModal } from '@/components/transactions/AddTransactionMod
 import { getCurrentMonthStr } from '@/lib/utils/formatters';
 import { Transaction, Account, Category } from '@/types';
 import { Loader2 } from 'lucide-react';
+import { offlineFetch, getLocalCachedDashboard } from '@/lib/pwa/offlineFetch';
+import { useOnlineStatus } from '@/lib/pwa/useOnlineStatus';
+import { PullToRefresh } from '@/components/shared/PullToRefresh';
+import { ReportsSkeleton } from '@/components/shared/Skeleton';
 
 export default function ReportsPage() {
-  const [loading, setLoading] = useState(true);
+  const cached = getLocalCachedDashboard();
+  const [loading, setLoading] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthStr());
   const [isMock, setIsMock] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const isOnline = useOnlineStatus();
+  const prevOnlineRef = useRef(isOnline);
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => cached?.transactions || []);
+  const [accounts, setAccounts] = useState<Account[]>(() => cached?.accounts || []);
+  const [categories, setCategories] = useState<Category[]>(() => cached?.categories || []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
-      setLoading(true);
-      const res = await fetch('/api/dashboard');
+      const res = await offlineFetch('/api/dashboard');
       const json = await res.json();
       if (json.success) {
-        setIsMock(json.isMock);
+        setIsMock(json.isMock ?? false);
         setTransactions(json.data.transactions || []);
         setAccounts(json.data.accounts || []);
         setCategories(json.data.categories || []);
-        setLastSyncedAt(new Date().toISOString());
+        setLastSyncedAt(json.offline ? null : new Date().toISOString());
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Detect reconnection: show skeleton while fetching fresh data when coming back online
+  useEffect(() => {
+    if (prevOnlineRef.current === false && isOnline) {
+      setIsReconnecting(true);
+      fetchData().finally(() => {
+        setTimeout(() => setIsReconnecting(false), 500);
+      });
+    }
+    prevOnlineRef.current = isOnline;
+  }, [isOnline]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-24">
@@ -53,16 +70,15 @@ export default function ReportsPage() {
         onSyncComplete={fetchData}
       />
 
-      <main className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-            <p className="text-xs font-semibold">Generating Financial Reports...</p>
-          </div>
-        ) : (
-          <ReportsOverview transactions={transactions} accounts={accounts} />
-        )}
-      </main>
+      <PullToRefresh onRefresh={fetchData}>
+        <main className="max-w-md mx-auto sm:max-w-lg md:max-w-2xl lg:max-w-4xl p-4">
+          {loading || isReconnecting ? (
+            <ReportsSkeleton />
+          ) : (
+            <ReportsOverview transactions={transactions} accounts={accounts} />
+          )}
+        </main>
+      </PullToRefresh>
 
       <BottomNav onOpenAddModal={() => setIsAddModalOpen(true)} />
 

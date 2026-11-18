@@ -31,6 +31,7 @@ interface NotificationBellModalProps {
   onMarkRead: (id: string) => void;
   onOpenAddModal: () => void;
   onClearHistory?: () => void;
+  isMock?: boolean;
 }
 
 export function NotificationBellModal({
@@ -43,8 +44,19 @@ export function NotificationBellModal({
   onMarkRead,
   onOpenAddModal,
   onClearHistory,
+  isMock,
 }: NotificationBellModalProps) {
   if (!isOpen) return null;
+
+  // Only display test cues when using mock data and in development mode
+  const isDev = process.env.NODE_ENV === 'development';
+  const isMockMode = Boolean(
+    isMock ||
+    (typeof window !== 'undefined' &&
+      (localStorage.getItem('google_sheets_mode') === 'mock' ||
+        localStorage.getItem('budgeti_mock_active') === 'true'))
+  );
+  const showTestCue = isDev && isMockMode;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -192,14 +204,16 @@ export function NotificationBellModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-2">
-          <button
-            onClick={onTriggerTest}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
-          >
-            <Play className="w-3 h-3 text-emerald-400" />
-            <span>Test Cue</span>
-          </button>
+        <div className={`p-3.5 bg-slate-950 border-t border-slate-800 flex items-center gap-2 ${showTestCue ? 'justify-between' : 'justify-end'}`}>
+          {showTestCue && (
+            <button
+              onClick={onTriggerTest}
+              className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
+            >
+              <Play className="w-3 h-3 text-emerald-400" />
+              <span>Test Cue</span>
+            </button>
+          )}
 
           <Link
             href="/settings"

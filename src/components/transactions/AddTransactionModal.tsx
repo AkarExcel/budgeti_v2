@@ -9,6 +9,7 @@ import { X, ArrowDownRight, ArrowUpRight, Loader2, Plus } from 'lucide-react';
 import { getCurrentDateStr } from '@/lib/utils/formatters';
 import { AddCategoryModal } from '@/components/categories/AddCategoryModal';
 import { AddAccountModal } from '@/components/accounts/AddAccountModal';
+import { offlineFetch } from '@/lib/pwa/offlineFetch';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -99,12 +100,28 @@ export function AddTransactionModal({
     setServerError(null);
 
     const isEditing = Boolean(editingTransaction?.id);
+    const now = new Date().toISOString();
+
+    // Build an optimistic record for offline caching
+    const optimisticRecord = isEditing
+      ? {
+          ...editingTransaction!,
+          ...data,
+          updated_at: now,
+        }
+      : {
+          ...data,
+          id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          created_at: now,
+          updated_at: now,
+        };
 
     try {
-      const response = await fetch('/api/transactions', {
+      const response = await offlineFetch('/api/transactions', {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(isEditing ? { id: editingTransaction!.id, ...data } : data),
+        optimisticRecord,
       });
 
       const resData = await response.json();
@@ -116,8 +133,9 @@ export function AddTransactionModal({
       reset();
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setServerError(err?.message || `Failed to ${isEditing ? 'update' : 'submit'} transaction`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : `Failed to ${isEditing ? 'update' : 'submit'} transaction`;
+      setServerError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -342,7 +360,7 @@ export function AddTransactionModal({
           >
             {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {isSubmitting
-              ? 'Saving to Google Sheets...'
+              ? 'Saving...'
               : editingTransaction
               ? 'Update Transaction'
               : `Add ${transactionType === 'expense' ? 'Expense' : 'Income'}`}

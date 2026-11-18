@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Landmark, Loader2, Plus } from 'lucide-react';
+import { offlineFetch } from '@/lib/pwa/offlineFetch';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -32,7 +33,17 @@ export function AddAccountModal({
     setServerError(null);
 
     try {
-      const response = await fetch('/api/accounts', {
+      const now = new Date().toISOString();
+      const optimisticRecord = {
+        id: `acc-${Date.now()}`,
+        name: trimmedName,
+        type,
+        opening_balance: Number(openingBalance) || 0,
+        active: true,
+        created_at: now,
+        updated_at: now,
+      };
+      const response = await offlineFetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -41,6 +52,7 @@ export function AddAccountModal({
           opening_balance: Number(openingBalance) || 0,
           active: true,
         }),
+        optimisticRecord,
       });
 
       const resData = await response.json();
@@ -54,8 +66,9 @@ export function AddAccountModal({
       setOpeningBalance('');
       onSuccess(trimmedName);
       onClose();
-    } catch (err: any) {
-      setServerError(err?.message || 'Failed to create account');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create account';
+      setServerError(msg);
     } finally {
       setIsSubmitting(false);
     }

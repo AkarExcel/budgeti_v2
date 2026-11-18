@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Tag, Loader2, Plus } from 'lucide-react';
+import { offlineFetch } from '@/lib/pwa/offlineFetch';
 
 interface AddCategoryModalProps {
   isOpen: boolean;
@@ -33,7 +34,15 @@ export function AddCategoryModal({
     setServerError(null);
 
     try {
-      const response = await fetch('/api/categories', {
+      const now = new Date().toISOString();
+      const optimisticRecord = {
+        id: `cat-${Date.now()}`,
+        name: trimmedName,
+        type: categoryType,
+        active: true,
+        created_at: now,
+      };
+      const response = await offlineFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -41,6 +50,7 @@ export function AddCategoryModal({
           type: categoryType,
           active: true,
         }),
+        optimisticRecord,
       });
 
       const resData = await response.json();
@@ -52,8 +62,9 @@ export function AddCategoryModal({
       setName('');
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setServerError(err?.message || 'Failed to create category');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create category';
+      setServerError(msg);
     } finally {
       setIsSubmitting(false);
     }
